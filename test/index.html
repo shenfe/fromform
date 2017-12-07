@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="../dist/fromform.js"></script>
+    <script>
+        window.onload = function () {
+            var obj = window.obj = {
+                name: {
+                    type: 'text',
+                    value: 'Bob'
+                },
+                gender: {
+                    type: 'select',
+                    options: [
+                        'male', 'female'
+                    ]
+                },
+                age: {
+                    type: 'number'
+                },
+                color: {
+                    type: 'color',
+                    value: '#000'
+                }
+            };
+            let frag = fromform(obj);
+            document.getElementById('form').appendChild(frag);
+        };
+    </script>
+</head>
+<body>
+    <div id="form"></div>
+</body>
+</html>
