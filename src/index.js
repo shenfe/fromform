@@ -62,7 +62,6 @@ const run = obj => {
     let frag = document.createDocumentFragment();
     let div = document.createElement('div');
     div.innerHTML = formify(obj);
-    console.log(div.innerHTML);
     domod(div, obj);
     frag.appendChild(div);
     return frag;

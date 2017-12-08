@@ -9,5 +9,22 @@
     "rollup": "^0.52.1",
     "rollup-plugin-commonjs": "^8.2.6",
     "rollup-plugin-node-resolve": "^3.0.0"
-  }
+  },
+  "name": "fromform",
+  "description": "Create form from object, change object from form.",
+  "version": "0.1.0",
+  "main": "./src/index.js",
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shenfe/fromform.git"
+  },
+  "author": "hengwu",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/shenfe/fromform/issues"
+  },
+  "homepage": "https://github.com/shenfe/fromform#readme"
 }
