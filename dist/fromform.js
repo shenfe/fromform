@@ -44,12 +44,9 @@ var domod = createCommonjsModule(function (module, exports) {
     }
 })();
 
-var gid = (function () {
-    var n = 0;
-    return function () {
-        return n++;
-    };
-})();
+var uid = function () {
+    return new Date().getTime() * 10000 + Math.floor(Math.random() * 10000);
+};
 
 var isNumber = function (v) {
     return typeof v === 'number';
@@ -554,15 +551,17 @@ OArray.prototype.cast = function (arr) {
     return this.splice.apply(this, [0, this.length].concat(arr));
 };
 
-var Store = {};
-var Dnstreams = {};
-var ResultsIn = {};
-var Upstreams = {};
-var ResultsFrom = {};
-var Laziness = {};
-var PropKernelTable = {};
-var KernelStatus = {};
-var GetterSetter = {};
+var GlobalNamespace = '_DMD_';
+window[GlobalNamespace] = window[GlobalNamespace] || {};
+var Store = window[GlobalNamespace]['Store'] = window[GlobalNamespace]['Store'] || {};
+var Dnstreams = window[GlobalNamespace]['Dnstreams'] = window[GlobalNamespace]['Dnstreams'] || {};
+var ResultsIn = window[GlobalNamespace]['ResultsIn'] = window[GlobalNamespace]['ResultsIn'] || {};
+var Upstreams = window[GlobalNamespace]['Upstreams'] = window[GlobalNamespace]['Upstreams'] || {};
+var ResultsFrom = window[GlobalNamespace]['ResultsFrom'] = window[GlobalNamespace]['ResultsFrom'] || {};
+var Laziness = window[GlobalNamespace]['Laziness'] = window[GlobalNamespace]['Laziness'] || {};
+var PropKernelTable = window[GlobalNamespace]['PropKernelTable'] = window[GlobalNamespace]['PropKernelTable'] || {};
+var KernelStatus = window[GlobalNamespace]['KernelStatus'] = window[GlobalNamespace]['KernelStatus'] || {};
+var GetterSetter = window[GlobalNamespace]['GetterSetter'] = window[GlobalNamespace]['GetterSetter'] || {};
 var __ = {};
 
 function defineProperty(target, prop, desc, proppath) {
@@ -576,15 +575,16 @@ function defineProperty(target, prop, desc, proppath) {
                 });
             }
         } else {
-            try {
-                Object.defineProperty(target, prop, desc);
-            } catch (e) {}
+            Object.defineProperty(target, prop, desc);
         }
     } else {
         if ('value' in desc) {
             target[prop] = desc.value;
         }
     }
+
+    if (proppath === false) return;
+
     proppath = proppath || fullpathOf(prop, target);
     if (!GetterSetter[proppath] && ('get' in desc || 'set' in desc)) GetterSetter[proppath] = {};
     if ('get' in desc) {
@@ -595,17 +595,31 @@ function defineProperty(target, prop, desc, proppath) {
     }
 }
 
+function joinPath(root, path) {
+    if (!path || path === '') return root;
+    if (!root || root === '') return path;
+    return root + '.' + path;
+}
+
+function splitPath(path) {
+    return path
+        .replace(/"([0-9a-zA-Z$_]+)"/mg, function (p0, p1) { return p1; })
+        .replace(/'([0-9a-zA-Z$_]+)'/mg, function (p0, p1) { return p1; })
+        .replace(/\[([0-9a-zA-Z$_]+)\]/mg, function (p0, p1) { return '.' + p1; })
+        .split('.');
+}
+
 function fullpathOf(ref, root) {
     if (root === undefined) return ref;
     var pre = register(root);
     if (pre == null) return ref || '';
-    return pre + (ref ? ('.' + ref) : '');
+    return joinPath(pre, ref);
 }
 
 function register(root) {
     if (root === Store || (!isObject(root) && !isNode(root))) return null;
     if (!root.__kernel_root) {
-        var id = 'kr_' + gid();
+        var id = 'kr_' + uid();
         defineProperty(root, '__kernel_root', {
             value: id
         });
@@ -618,8 +632,8 @@ function formatStream(stream, root) {
     if (isObject(stream) || isString(stream)) stream = [stream];
     if (isArray(stream)) {
         return stream.map(function (a) {
-            if (isObject(a)) return register(a.root) + '.' + a.alias;
-            if (isString(a)) return register(root) + '.' + a;
+            if (isObject(a)) return joinPath(register(a.root), a.alias);
+            if (isString(a)) return joinPath(register(root), a);
             return null;
         });
     }
@@ -636,24 +650,34 @@ function propKernelOrder(proppath) {
  * @constructor
  */
 function Kernel(root, path, relations) {
+    if (typeof path === 'string') {
+        path = splitPath(path).join('.');
+    }
     var obj = {};
     var value;
     obj = scopeOf(path, root);
     if (obj == null) return;
     value = obj.target[obj.property];
 
-    var proppath = register(root) + '.' + path;
+    var proppath;
+    if (!obj.target['__proppath']) {
+        defineProperty(obj.target, '__proppath', {
+            value: joinPath(register(root), splitPath(path).slice(0, -1).join('.'))
+        });
+        proppath = joinPath(register(root), path);
+    } else {
+        proppath = joinPath(obj.target['__proppath'], obj.property);
+    }
+
     var __kid = proppath + '#' + propKernelOrder(proppath);
     defineProperty(this, '__kid', {
         value: __kid
-    });
+    }, false);
     KernelStatus[this.__kid] = 1;
     if (PropKernelTable[proppath] === undefined) {
         PropKernelTable[proppath] = [];
         if (hasProperty(obj.target, obj.property) && !isInstance(obj.target, OArray)) {
-            try {
-                delete obj.target[obj.property];
-            } catch (e) {}
+            delete obj.target[obj.property];
         }
     }
     PropKernelTable[proppath].push(1);
@@ -836,9 +860,9 @@ function Data(root, refPath, value, ensurePathValid) {
     root = root || Store;
     var toSet = arguments.length >= 3 && value !== __;
     var v = root;
-    var proppath = fullpathOf(null, root);
+    // var proppath = fullpathOf(null, root);
     var paths = [];
-    if (refPath) paths = refPath.split('.');
+    if (refPath) paths = splitPath(refPath);
     var parent;
     var prop;
 
@@ -849,7 +873,7 @@ function Data(root, refPath, value, ensurePathValid) {
             return undefined;
         }
         prop = paths.shift();
-        proppath += (proppath === '' ? '' : '.') + prop;
+        // proppath += (proppath === '' ? '' : '.') + prop;
         if (toSet && paths.length === 0) { /* set */
             if (isInstance(v, OArray) &&
                 !(isObject(v[prop]) && isObject(value))) {
@@ -891,10 +915,10 @@ var domProp = {
  * Regular expressions.
  */
 var Regs = {
-    each11: /^\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
-    each12: /^\s*\(\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
-    each21: /^\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
-    each22: /^\s*\(\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/
+    each11: /^\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each12: /^\s*\(\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each21: /^\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each22: /^\s*\(\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/
 };
 
 /**
@@ -996,14 +1020,21 @@ function evaluateRawTextWithTmpl(text, refs) {
 function parseRefsInExpr(expr) {
     expr = ';' + expr + ';';
     var reg;
-    if (conf$1.refBeginsWithDollar) {
-        reg = /\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
-        return expr.match(reg).map(function (r) {
-            return r.substr(1);
+    var transformNum = function (r) {
+        return r.replace(/\.([0-9]+)([^0-9a-zA-Z$_]?)/g, function (p0, p1, p2) {
+            return '[' + p1 + ']' + p2;
         });
+    };
+    if (conf$1.refBeginsWithDollar) {
+        expr = expr.replace(/([^a-zA-Z0-9$_.])this\./mg, function (p0, p1) { return p1 + '$'; });
+        reg = /\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
+        return (expr.match(reg) || []).map(function (r) {
+            return r.substr(1);
+        }).map(transformNum);
     } else {
-        reg = /([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
-        return expr.match(reg);
+        expr = expr.replace(/([^a-zA-Z0-9$_.])this\./mg, function (p0, p1) { return p1; });
+        reg = /([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
+        return (expr.match(reg) || []).map(transformNum);
     }
 }
 
@@ -1210,7 +1241,7 @@ function Bind($el, ref, ext) {
                 var $copy = $el.cloneNode(true);
                 var _ext = {};
                 _ext[eachExpr.iterator.val] = v;
-                _ext[eachExpr.iterator.key] = k;
+                if (eachExpr.iterator.key) _ext[eachExpr.iterator.key] = k;
                 Bind($copy, ref, [_ext].concat(ext));
 
                 $targetList.on({
@@ -1382,41 +1413,86 @@ return DMD;
 
 });
 
-const createEl = (name, type, options) => {
+const any = (arr, func) => {
+    if (arr instanceof Array) {
+        for (let a of arr) {
+            if (func(a)) return true;
+        }
+    } else if (arr instanceof Object) {
+        for (let p in arr) {
+            if (!arr.hasOwnProperty(p)) continue;
+            if (func(arr[p], p)) return true;
+        }
+    }
+    return false;
+};
+
+const createEl = (proppath, type, name) => {
     let el;
     switch (type) {
         case 'text':
         case 'number':
         case 'color':
         case 'url':
-            el = `<input type="${type}" m-value="$${name}.value">`;
+            el = `<input type="${type}" m-value="$${proppath}._value">`;
             break;
         case 'select':
             el = `
-            <select m-value="$${name}.value">
-                <option m-each="$val in $${name}.options" m-value="$val">{{$val}}</option>
+            <select m-value="$${proppath}._value">
+                <option m-each="$val in $${proppath}._options" m-value="$val">{{$val}}</option>
             </select>`;
             break;
         default:
             break;
     }
-    return `<label>${name}:</label>${el}`;
+   return `<label>${name}:</label>${el}`;
 };
 
-const formify = obj => {
-    let frag = document.createDocumentFragment();
+const formify = (obj, proppath) => {
+    if (!proppath) proppath = '';
+    else proppath = proppath + '.';
+
+    let result = [];
     for (let p in obj) {
-        let el = document.createElement('div');
-        if (!obj[p].hasOwnProperty('value')) {
-            obj[p].value = '';
+        let items = [];
+        if (obj[p] instanceof Array) {
+            let jtems = [];
+            obj[p].forEach((o, i) => {
+                if (any(o, (v, p) => p[0] !== '_')) {
+                    jtems.push(formify(o, `${proppath}${p}[${i}]`));
+                } else {
+                    if (!o.hasOwnProperty('_value')) {
+                        o._value = '';
+                    }
+                    jtems.push(createEl(`${proppath}${p}[${i}]`, o._type, i));
+                }
+            });
+            items.push(`<div><label>${p}:</label>${jtems.join('')}</div>`);
+        } else if (obj[p] instanceof Object) {
+            if (any(obj[p], (v, p) => p[0] !== '_')) {
+                items.push(`<label>${p}:</label>` + formify(obj[p], `${proppath}${p}`));
+            } else {
+                if (!obj[p].hasOwnProperty('_value')) {
+                    obj[p]._value = '';
+                }
+                items.push(createEl(`${proppath}${p}`, obj[p]._type, p));
+            }
         }
-        el.innerHTML = createEl(p, obj[p].type, obj[p].options);
-        domod(el, obj);
-        frag.appendChild(el);
+        result.push(`<div>${items.join('')}</div>`);
     }
+    return `<div>${result.join('')}</div>`;
+};
+
+const run = obj => {
+    let frag = document.createDocumentFragment();
+    let div = document.createElement('div');
+    div.innerHTML = formify(obj);
+    console.log(div.innerHTML);
+    domod(div, obj);
+    frag.appendChild(div);
     return frag;
 };
 
-return formify;
+return run;
 
 })));
