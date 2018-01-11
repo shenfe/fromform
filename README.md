@@ -36,6 +36,10 @@ let f = fromform(obj); // return a DocumentFragment instance
 document.getElementById('form-container').appendChild(f);
 ```
 
+The effect is:
+
+<p align="center"><img src="https://raw.githubusercontent.com/shenfe/fromform/master/readme_assets/demo1.png"></p>
+
 ## License
 
 [MIT](http://opensource.org/licenses/MIT)
