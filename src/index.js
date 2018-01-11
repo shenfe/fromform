@@ -12,8 +12,7 @@ const createEl = (proppath, type, name) => {
             el = `<input type="${type}" m-value="$${proppath}._value">`;
             break;
         case 'select':
-            el = `
-            <select m-value="$${proppath}._value">
+            el = `<select m-value="$${proppath}._value">
                 <option m-each="$val in $${proppath}._options" m-value="$val">{{$val}}</option>
             </select>`;
             break;
@@ -23,7 +22,7 @@ const createEl = (proppath, type, name) => {
    return `<label>${name}:</label>${el}`;
 };
 
-const formify = (obj, proppath) => {
+const formify = (obj, proppath, doWithNested) => {
     if (!proppath) proppath = '';
     else proppath = proppath + '.';
 
@@ -34,7 +33,7 @@ const formify = (obj, proppath) => {
             let jtems = [];
             obj[p].forEach((o, i) => {
                 if (any(o, (v, p) => p[0] !== '_')) {
-                    jtems.push(formify(o, `${proppath}${p}[${i}]`));
+                    jtems.push(formify(o, `${proppath}${p}[${i}]`, doWithNested));
                 } else {
                     if (!o.hasOwnProperty('_value')) {
                         o._value = '';
@@ -42,10 +41,11 @@ const formify = (obj, proppath) => {
                     jtems.push(createEl(`${proppath}${p}[${i}]`, o._type, i));
                 }
             });
-            items.push(`<div><label>${p}:</label>${jtems.join('')}</div>`);
+            items.push(doWithNested ? doWithNested(p, jtems.join('')) : `<div><label>${p}:</label>${jtems.join('')}</div>`);
         } else if (obj[p] instanceof Object) {
             if (any(obj[p], (v, p) => p[0] !== '_')) {
-                items.push(`<label>${p}:</label>` + formify(obj[p], `${proppath}${p}`));
+                let ct = formify(obj[p], proppath + p, doWithNested);
+                items.push(doWithNested ? doWithNested(p, ct) : `<label>${p}:</label>${ct}`);
             } else {
                 if (!obj[p].hasOwnProperty('_value')) {
                     obj[p]._value = '';
@@ -58,10 +58,10 @@ const formify = (obj, proppath) => {
     return `<div>${result.join('')}</div>`;
 };
 
-const run = obj => {
+const run = (obj, doWithNested) => {
     let frag = document.createDocumentFragment();
     let div = document.createElement('div');
-    div.innerHTML = formify(obj);
+    div.innerHTML = formify(obj, null, doWithNested);
     domod(div, obj);
     frag.appendChild(div);
     return frag;
