@@ -32,7 +32,10 @@ const data = {
         _value: '#000'
     }
 };
-let f = fromform(data); // return a DocumentFragment instance
+let f = fromform(
+    data,
+    (summary, content) => `<details open><summary>${summary}:</summary>${content}</details>` // optional
+); // return a DocumentFragment instance
 document.getElementById('form-container').appendChild(f);
 ```
 
