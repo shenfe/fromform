@@ -53,7 +53,7 @@ As the demo above shows, `input` elements and `select` elements could be represe
 
 ### Nested Object
 
-As the demo above shows, a field could be another object instead of a descriptor. When this case happens, it's allowed to provide a function to customize what HTML code you want from the summary (namely the field name) and the content (which is the HTML of the field object).
+As the demo above shows through the `weight` field, a field could be another object instead of a descriptor. When this case happens, it's allowed to provide a function to customize what HTML code you want from the summary (namely the field name) and the content (which is the HTML of the field object).
 
 ## Related
 
