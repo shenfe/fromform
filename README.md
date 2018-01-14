@@ -57,7 +57,7 @@ As the demo above shows through the `weight` field, a field could be another obj
 
 ## Related
 
-* [domod](https://github.com/shenfe/domod)
+* [domod](https://github.com/shenfe/domod), a super light two-way-binding library.
 
 ## License
 
